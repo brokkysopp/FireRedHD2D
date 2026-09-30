@@ -501,6 +501,179 @@ The point is to make the renderer art-directable without recompiling for every v
 
 Prefer a compact developer UI over dozens of undocumented environment variables as the system matures.
 
+
+# External visual harness strategy
+
+For development-time art direction, camera authoring, scene inspection, and cinematic tooling, prefer reusing an existing 3D editor/UI stack instead of building a bespoke editor from scratch.
+
+The first implementation candidate to evaluate is the official Three.js Editor architecture, potentially combined with ideas/components from browser-based motion/timeline editors such as MyMotionStudio.
+
+The goal is not to replace the Rust HD-2D renderer or move game authority into JavaScript.
+
+The goal is to create a development-only visual harness that can:
+- connect to the running emulator/renderer
+- mirror current HD-2D scene state
+- inspect world geometry
+- inspect actor positions
+- manipulate cameras live
+- author camera shots
+- tune lighting and visual parameters
+- scrub replay state
+- edit keyframes/timelines
+- save/load camera and cinematic metadata
+
+## Reuse-first rule
+
+Before creating custom UI for any of the following, evaluate whether an existing editor implementation can be adapted:
+- scene hierarchy/outliner
+- 3D viewport navigation
+- transform gizmos
+- perspective/orthographic camera editing
+- camera FOV controls
+- timeline UI
+- keyframe editing
+- easing/interpolation controls
+- multi-shot editing
+- scene serialization
+- property inspector panels
+- animation playback controls
+
+Prefer integrating proven open-source editor components over recreating them.
+
+Do not tightly fork huge third-party applications unless necessary. Prefer isolating reusable/editor-facing components behind our own small adapter layer so upstream code can be updated or replaced later.
+
+## Harness architecture
+
+The intended separation is:
+
+```text
+FireRed ROM / emulator
+        ↓
+authoritative game state
+        ↓
+HD-2D world reconstruction
+        ↓
+scene/state bridge
+        ↓
+localhost IPC / WebSocket / equivalent
+        ↓
+browser visual harness
+        ↓
+camera / lighting / timeline / replay controls
+```
+
+The browser/editor side must never become authoritative for:
+- player movement
+- NPC behavior
+- collision
+- battle logic
+- scripts
+- inventory
+- encounters
+- game progression
+
+It may author presentation metadata such as:
+- camera tracks
+- camera presets
+- shot cuts
+- keyframes
+- easing curves
+- lighting presets
+- visual tuning presets
+- replay-view state
+
+## Transport requirements
+
+Prefer a lightweight local development bridge:
+- localhost-only by default
+- no external network exposure
+- simple message schema
+- versioned messages where useful
+- tolerant of editor reconnects
+- renderer/emulator must continue functioning if the harness is closed
+
+Good candidates include:
+- WebSocket
+- localhost HTTP + WebSocket
+- named pipe plus browser bridge
+- another minimal local IPC design
+
+Choose the simplest option that works reliably across the main development platform.
+
+## Initial harness scope
+
+The first harness prototype should NOT attempt to mirror the entire finished renderer.
+
+Start with:
+- player marker
+- NPC markers
+- current map bounds
+- simple geometry proxies
+- active camera
+- camera presets
+- lighting parameters
+- renderer tuning values
+- replay frame/time if available
+- live updates from the running game
+
+Then expand toward:
+- full scene mirroring
+- camera path editing
+- replay scrubbing
+- timeline/keyframe editing
+- battle scene inspection
+- cinematic export
+
+## Three.js editor guidance
+
+When evaluating Three.js Editor:
+- reuse viewport/editor patterns where practical
+- reuse camera/property workflows where practical
+- reuse transform controls/gizmos where practical
+- reuse scene serialization ideas where practical
+- do not copy unnecessary project-management or publishing features
+- keep our bridge/protocol independent from Three.js-specific internals where possible
+
+The Rust side should emit semantic scene data, not Three.js implementation details.
+
+Preferred semantic bridge entities include:
+- camera
+- player
+- actor
+- building
+- tree
+- grass region
+- water region
+- interior prop
+- battle actor
+- effect anchor
+- light
+- replay frame
+- cinematic marker
+
+The visual harness may convert those semantic entities into Three.js objects internally.
+
+## Cinematic editor direction
+
+The long-term editor should support:
+- timeline scrubbing
+- play/pause
+- frame stepping
+- playback speed
+- keyframe tracks
+- camera position
+- camera target
+- camera FOV/focal length
+- easing
+- cut/blend transitions
+- follow targets
+- orbit shots
+- wide establishing shots
+- battle camera shots
+- save/load track data
+
+Where an existing motion editor already implements these well, investigate adapting those pieces rather than rebuilding them.
+
 # Wide/cinematic map views
 
 The renderer should support views substantially wider than the original 240x160 GBA viewport.
